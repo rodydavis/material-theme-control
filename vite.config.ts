@@ -1,0 +1,18 @@
+import { defineConfig } from "vite";
+import { resolve } from "path";
+
+export default defineConfig({
+  base: "/material-theme-control/",
+  build: {
+    lib: {
+      entry: resolve(__dirname, "src/material-theme-control.ts"),
+      name: "MaterialThemeControl",
+      fileName: (format) => `material-theme-control.${format}.js`,
+    },
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, "index.html"),
+      },
+    },
+  },
+});
