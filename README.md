@@ -10,3 +10,5 @@ Drop in component to style a Material 3 web app.
 <material-theme-control></material-theme-control>
 <script type="module" src="https://rodydavis.github.io/material-theme-control/material-theme-control.es.js"></script>
 ```
+
+![](screenshots/preview.png)
