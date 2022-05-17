@@ -39,6 +39,9 @@ export class MaterialThemeControl extends LitElement {
       color: var(--md-sys-color-on-background);
       border: 1px solid var(--md-sys-color-outline);
     }
+    dialog::backdrop {
+      background-color: var(--dialog-backdrop-color, rgba(0, 0, 0, 0.5));
+    }
     .option {
       height: 45px;
     }
