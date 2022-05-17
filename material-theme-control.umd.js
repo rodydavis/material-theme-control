@@ -437,6 +437,9 @@
       padding-left: 30px;
       padding-right: 30px;
       padding-bottom: 25px;
+      background-color: var(--md-sys-color-background);
+      color: var(--md-sys-color-on-background);
+      border: 1px solid var(--md-sys-color-outline);
     }
     .option {
       height: 45px;
