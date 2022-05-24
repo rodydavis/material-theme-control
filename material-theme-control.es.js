@@ -3104,6 +3104,11 @@ let MaterialThemeControl = class extends s {
     this.color = val;
     localStorage.setItem("theme-color", val);
     this.updateTheme();
+    this.dispatchEvent(new CustomEvent("color", {
+      detail: { color: val },
+      bubbles: true,
+      composed: true
+    }));
   }
   onColor(e2) {
     const target = e2.target;
