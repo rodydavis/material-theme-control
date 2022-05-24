@@ -187,6 +187,13 @@ export class MaterialThemeControl extends LitElement {
     this.color = val;
     localStorage.setItem("theme-color", val);
     this.updateTheme();
+    this.dispatchEvent(
+      new CustomEvent("color", {
+        detail: { color: val },
+        bubbles: true,
+        composed: true,
+      })
+    );
   }
 
   private onColor(e: Event) {
