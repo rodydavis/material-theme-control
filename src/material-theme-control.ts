@@ -220,7 +220,12 @@ export class MaterialThemeControl extends LitElement {
     }
     const target = this.shadowRoot!.querySelector("main") as HTMLElement;
     const theme = themeFromSourceColor(argbFromHex(source));
-    applyTheme(theme, { target, dark });
+    applyTheme(theme, {
+      target,
+      dark,
+      brightnessSuffix: true,
+      paletteTones: [100, 99, 98, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0],
+    });
   }
 
   firstUpdated() {
