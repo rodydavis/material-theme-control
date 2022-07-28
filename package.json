@@ -16,7 +16,7 @@
     "build": "tsc && vite build"
   },
   "dependencies": {
-    "@material/material-color-utilities": "./third_party/material-color-utilities",
+    "@material/material-color-utilities": "./third_party/material-color-utilities/typescript",
     "@material/mwc-icon-button": "^0.26.1",
     "lit": "^2.0.2"
   },

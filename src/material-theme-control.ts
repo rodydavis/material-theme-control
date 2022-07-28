@@ -13,6 +13,11 @@ export const tagName = "material-theme-control";
 @customElement(tagName)
 export class MaterialThemeControl extends LitElement {
   static styles = css`
+    :host {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
     .theme-options {
       font-size: 1.5rem;
       font-family: "Roboto", sans-serif;
