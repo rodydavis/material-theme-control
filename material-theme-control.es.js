@@ -2073,20 +2073,16 @@ function clampInt(min, max, input) {
   }
   return input;
 }
-function clampDouble(min, max, input) {
-  if (input < min) {
-    return min;
-  } else if (input > max) {
-    return max;
-  }
-  return input;
-}
 function sanitizeDegreesDouble(degrees) {
   degrees = degrees % 360;
   if (degrees < 0) {
     degrees = degrees + 360;
   }
   return degrees;
+}
+function rotationDirection(from, to) {
+  const increasingDifference = sanitizeDegreesDouble(to - from);
+  return increasingDifference <= 180 ? 1 : -1;
 }
 function differenceDegrees(a2, b2) {
   return 180 - Math.abs(Math.abs(a2 - b2) - 180);
@@ -2139,6 +2135,12 @@ const WHITE_POINT_D65 = [95.047, 100, 108.883];
 function argbFromRgb(red, green, blue) {
   return (255 << 24 | (red & 255) << 16 | (green & 255) << 8 | blue & 255) >>> 0;
 }
+function argbFromLinrgb(linrgb) {
+  const r2 = delinearized(linrgb[0]);
+  const g2 = delinearized(linrgb[1]);
+  const b2 = delinearized(linrgb[2]);
+  return argbFromRgb(r2, g2, b2);
+}
 function redFromArgb(argb) {
   return argb >> 16 & 255;
 }
@@ -2165,36 +2167,16 @@ function xyzFromArgb(argb) {
   return matrixMultiply([r2, g2, b2], SRGB_TO_XYZ);
 }
 function argbFromLstar(lstar) {
-  const fy = (lstar + 16) / 116;
-  const fz = fy;
-  const fx = fy;
-  const kappa = 24389 / 27;
-  const epsilon = 216 / 24389;
-  const lExceedsEpsilonKappa = lstar > 8;
-  const y = lExceedsEpsilonKappa ? fy * fy * fy : lstar / kappa;
-  const cubeExceedEpsilon = fy * fy * fy > epsilon;
-  const x2 = cubeExceedEpsilon ? fx * fx * fx : lstar / kappa;
-  const z2 = cubeExceedEpsilon ? fz * fz * fz : lstar / kappa;
-  const whitePoint = WHITE_POINT_D65;
-  return argbFromXyz(x2 * whitePoint[0], y * whitePoint[1], z2 * whitePoint[2]);
+  const y = yFromLstar(lstar);
+  const component = delinearized(y);
+  return argbFromRgb(component, component, component);
 }
 function lstarFromArgb(argb) {
-  const y = xyzFromArgb(argb)[1] / 100;
-  const e2 = 216 / 24389;
-  if (y <= e2) {
-    return 24389 / 27 * y;
-  } else {
-    const yIntermediate = Math.pow(y, 1 / 3);
-    return 116 * yIntermediate - 16;
-  }
+  const y = xyzFromArgb(argb)[1];
+  return 116 * labF(y / 100) - 16;
 }
 function yFromLstar(lstar) {
-  const ke = 8;
-  if (lstar > ke) {
-    return Math.pow((lstar + 16) / 116, 3) * 100;
-  } else {
-    return lstar / (24389 / 27) * 100;
-  }
+  return 100 * labInvf((lstar + 16) / 116);
 }
 function linearized(rgbComponent) {
   const normalized = rgbComponent / 255;
@@ -2216,6 +2198,25 @@ function delinearized(rgbComponent) {
 }
 function whitePointD65() {
   return WHITE_POINT_D65;
+}
+function labF(t2) {
+  const e2 = 216 / 24389;
+  const kappa = 24389 / 27;
+  if (t2 > e2) {
+    return Math.pow(t2, 1 / 3);
+  } else {
+    return (kappa * t2 + 16) / 116;
+  }
+}
+function labInvf(ft) {
+  const e2 = 216 / 24389;
+  const kappa = 24389 / 27;
+  const ft3 = ft * ft * ft;
+  if (ft3 > e2) {
+    return ft3;
+  } else {
+    return (116 * ft - 16) / kappa;
+  }
 }
 /**
  * @license
@@ -2452,123 +2453,593 @@ class Cam16 {
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+class HctSolver {
+  static sanitizeRadians(angle) {
+    return (angle + Math.PI * 8) % (Math.PI * 2);
+  }
+  static trueDelinearized(rgbComponent) {
+    const normalized = rgbComponent / 100;
+    let delinearized2 = 0;
+    if (normalized <= 31308e-7) {
+      delinearized2 = normalized * 12.92;
+    } else {
+      delinearized2 = 1.055 * Math.pow(normalized, 1 / 2.4) - 0.055;
+    }
+    return delinearized2 * 255;
+  }
+  static chromaticAdaptation(component) {
+    const af = Math.pow(Math.abs(component), 0.42);
+    return signum(component) * 400 * af / (af + 27.13);
+  }
+  static hueOf(linrgb) {
+    const scaledDiscount = matrixMultiply(linrgb, HctSolver.SCALED_DISCOUNT_FROM_LINRGB);
+    const rA = HctSolver.chromaticAdaptation(scaledDiscount[0]);
+    const gA = HctSolver.chromaticAdaptation(scaledDiscount[1]);
+    const bA = HctSolver.chromaticAdaptation(scaledDiscount[2]);
+    const a2 = (11 * rA + -12 * gA + bA) / 11;
+    const b2 = (rA + gA - 2 * bA) / 9;
+    return Math.atan2(b2, a2);
+  }
+  static areInCyclicOrder(a2, b2, c2) {
+    const deltaAB = HctSolver.sanitizeRadians(b2 - a2);
+    const deltaAC = HctSolver.sanitizeRadians(c2 - a2);
+    return deltaAB < deltaAC;
+  }
+  static intercept(source, mid, target) {
+    return (mid - source) / (target - source);
+  }
+  static lerpPoint(source, t2, target) {
+    return [
+      source[0] + (target[0] - source[0]) * t2,
+      source[1] + (target[1] - source[1]) * t2,
+      source[2] + (target[2] - source[2]) * t2
+    ];
+  }
+  static setCoordinate(source, coordinate, target, axis) {
+    const t2 = HctSolver.intercept(source[axis], coordinate, target[axis]);
+    return HctSolver.lerpPoint(source, t2, target);
+  }
+  static isBounded(x2) {
+    return 0 <= x2 && x2 <= 100;
+  }
+  static nthVertex(y, n2) {
+    const kR = HctSolver.Y_FROM_LINRGB[0];
+    const kG = HctSolver.Y_FROM_LINRGB[1];
+    const kB = HctSolver.Y_FROM_LINRGB[2];
+    const coordA = n2 % 4 <= 1 ? 0 : 100;
+    const coordB = n2 % 2 === 0 ? 0 : 100;
+    if (n2 < 4) {
+      const g2 = coordA;
+      const b2 = coordB;
+      const r2 = (y - g2 * kG - b2 * kB) / kR;
+      if (HctSolver.isBounded(r2)) {
+        return [r2, g2, b2];
+      } else {
+        return [-1, -1, -1];
+      }
+    } else if (n2 < 8) {
+      const b2 = coordA;
+      const r2 = coordB;
+      const g2 = (y - r2 * kR - b2 * kB) / kG;
+      if (HctSolver.isBounded(g2)) {
+        return [r2, g2, b2];
+      } else {
+        return [-1, -1, -1];
+      }
+    } else {
+      const r2 = coordA;
+      const g2 = coordB;
+      const b2 = (y - r2 * kR - g2 * kG) / kB;
+      if (HctSolver.isBounded(b2)) {
+        return [r2, g2, b2];
+      } else {
+        return [-1, -1, -1];
+      }
+    }
+  }
+  static bisectToSegment(y, targetHue) {
+    let left = [-1, -1, -1];
+    let right = left;
+    let leftHue = 0;
+    let rightHue = 0;
+    let initialized = false;
+    let uncut = true;
+    for (let n2 = 0; n2 < 12; n2++) {
+      const mid = HctSolver.nthVertex(y, n2);
+      if (mid[0] < 0) {
+        continue;
+      }
+      const midHue = HctSolver.hueOf(mid);
+      if (!initialized) {
+        left = mid;
+        right = mid;
+        leftHue = midHue;
+        rightHue = midHue;
+        initialized = true;
+        continue;
+      }
+      if (uncut || HctSolver.areInCyclicOrder(leftHue, midHue, rightHue)) {
+        uncut = false;
+        if (HctSolver.areInCyclicOrder(leftHue, targetHue, midHue)) {
+          right = mid;
+          rightHue = midHue;
+        } else {
+          left = mid;
+          leftHue = midHue;
+        }
+      }
+    }
+    return [left, right];
+  }
+  static midpoint(a2, b2) {
+    return [
+      (a2[0] + b2[0]) / 2,
+      (a2[1] + b2[1]) / 2,
+      (a2[2] + b2[2]) / 2
+    ];
+  }
+  static criticalPlaneBelow(x2) {
+    return Math.floor(x2 - 0.5);
+  }
+  static criticalPlaneAbove(x2) {
+    return Math.ceil(x2 - 0.5);
+  }
+  static bisectToLimit(y, targetHue) {
+    const segment = HctSolver.bisectToSegment(y, targetHue);
+    let left = segment[0];
+    let leftHue = HctSolver.hueOf(left);
+    let right = segment[1];
+    for (let axis = 0; axis < 3; axis++) {
+      if (left[axis] !== right[axis]) {
+        let lPlane = -1;
+        let rPlane = 255;
+        if (left[axis] < right[axis]) {
+          lPlane = HctSolver.criticalPlaneBelow(HctSolver.trueDelinearized(left[axis]));
+          rPlane = HctSolver.criticalPlaneAbove(HctSolver.trueDelinearized(right[axis]));
+        } else {
+          lPlane = HctSolver.criticalPlaneAbove(HctSolver.trueDelinearized(left[axis]));
+          rPlane = HctSolver.criticalPlaneBelow(HctSolver.trueDelinearized(right[axis]));
+        }
+        for (let i2 = 0; i2 < 8; i2++) {
+          if (Math.abs(rPlane - lPlane) <= 1) {
+            break;
+          } else {
+            const mPlane = Math.floor((lPlane + rPlane) / 2);
+            const midPlaneCoordinate = HctSolver.CRITICAL_PLANES[mPlane];
+            const mid = HctSolver.setCoordinate(left, midPlaneCoordinate, right, axis);
+            const midHue = HctSolver.hueOf(mid);
+            if (HctSolver.areInCyclicOrder(leftHue, targetHue, midHue)) {
+              right = mid;
+              rPlane = mPlane;
+            } else {
+              left = mid;
+              leftHue = midHue;
+              lPlane = mPlane;
+            }
+          }
+        }
+      }
+    }
+    return HctSolver.midpoint(left, right);
+  }
+  static inverseChromaticAdaptation(adapted) {
+    const adaptedAbs = Math.abs(adapted);
+    const base = Math.max(0, 27.13 * adaptedAbs / (400 - adaptedAbs));
+    return signum(adapted) * Math.pow(base, 1 / 0.42);
+  }
+  static findResultByJ(hueRadians, chroma, y) {
+    let j = Math.sqrt(y) * 11;
+    const viewingConditions = ViewingConditions.DEFAULT;
+    const tInnerCoeff = 1 / Math.pow(1.64 - Math.pow(0.29, viewingConditions.n), 0.73);
+    const eHue = 0.25 * (Math.cos(hueRadians + 2) + 3.8);
+    const p1 = eHue * (5e4 / 13) * viewingConditions.nc * viewingConditions.ncb;
+    const hSin = Math.sin(hueRadians);
+    const hCos = Math.cos(hueRadians);
+    for (let iterationRound = 0; iterationRound < 5; iterationRound++) {
+      const jNormalized = j / 100;
+      const alpha = chroma === 0 || j === 0 ? 0 : chroma / Math.sqrt(jNormalized);
+      const t2 = Math.pow(alpha * tInnerCoeff, 1 / 0.9);
+      const ac = viewingConditions.aw * Math.pow(jNormalized, 1 / viewingConditions.c / viewingConditions.z);
+      const p2 = ac / viewingConditions.nbb;
+      const gamma = 23 * (p2 + 0.305) * t2 / (23 * p1 + 11 * t2 * hCos + 108 * t2 * hSin);
+      const a2 = gamma * hCos;
+      const b2 = gamma * hSin;
+      const rA = (460 * p2 + 451 * a2 + 288 * b2) / 1403;
+      const gA = (460 * p2 - 891 * a2 - 261 * b2) / 1403;
+      const bA = (460 * p2 - 220 * a2 - 6300 * b2) / 1403;
+      const rCScaled = HctSolver.inverseChromaticAdaptation(rA);
+      const gCScaled = HctSolver.inverseChromaticAdaptation(gA);
+      const bCScaled = HctSolver.inverseChromaticAdaptation(bA);
+      const linrgb = matrixMultiply([rCScaled, gCScaled, bCScaled], HctSolver.LINRGB_FROM_SCALED_DISCOUNT);
+      if (linrgb[0] < 0 || linrgb[1] < 0 || linrgb[2] < 0) {
+        return 0;
+      }
+      const kR = HctSolver.Y_FROM_LINRGB[0];
+      const kG = HctSolver.Y_FROM_LINRGB[1];
+      const kB = HctSolver.Y_FROM_LINRGB[2];
+      const fnj = kR * linrgb[0] + kG * linrgb[1] + kB * linrgb[2];
+      if (fnj <= 0) {
+        return 0;
+      }
+      if (iterationRound === 4 || Math.abs(fnj - y) < 2e-3) {
+        if (linrgb[0] > 100.01 || linrgb[1] > 100.01 || linrgb[2] > 100.01) {
+          return 0;
+        }
+        return argbFromLinrgb(linrgb);
+      }
+      j = j - (fnj - y) * j / (2 * fnj);
+    }
+    return 0;
+  }
+  static solveToInt(hueDegrees, chroma, lstar) {
+    if (chroma < 1e-4 || lstar < 1e-4 || lstar > 99.9999) {
+      return argbFromLstar(lstar);
+    }
+    hueDegrees = sanitizeDegreesDouble(hueDegrees);
+    const hueRadians = hueDegrees / 180 * Math.PI;
+    const y = yFromLstar(lstar);
+    const exactAnswer = HctSolver.findResultByJ(hueRadians, chroma, y);
+    if (exactAnswer !== 0) {
+      return exactAnswer;
+    }
+    const linrgb = HctSolver.bisectToLimit(y, hueRadians);
+    return argbFromLinrgb(linrgb);
+  }
+  static solveToCam(hueDegrees, chroma, lstar) {
+    return Cam16.fromInt(HctSolver.solveToInt(hueDegrees, chroma, lstar));
+  }
+}
+HctSolver.SCALED_DISCOUNT_FROM_LINRGB = [
+  [
+    0.001200833568784504,
+    0.002389694492170889,
+    2795742885861124e-19
+  ],
+  [
+    5891086651375999e-19,
+    0.0029785502573438758,
+    3270666104008398e-19
+  ],
+  [
+    10146692491640572e-20,
+    5364214359186694e-19,
+    0.0032979401770712076
+  ]
+];
+HctSolver.LINRGB_FROM_SCALED_DISCOUNT = [
+  [
+    1373.2198709594231,
+    -1100.4251190754821,
+    -7.278681089101213
+  ],
+  [
+    -271.815969077903,
+    559.6580465940733,
+    -32.46047482791194
+  ],
+  [
+    1.9622899599665666,
+    -57.173814538844006,
+    308.7233197812385
+  ]
+];
+HctSolver.Y_FROM_LINRGB = [0.2126, 0.7152, 0.0722];
+HctSolver.CRITICAL_PLANES = [
+  0.015176349177441876,
+  0.045529047532325624,
+  0.07588174588720938,
+  0.10623444424209313,
+  0.13658714259697685,
+  0.16693984095186062,
+  0.19729253930674434,
+  0.2276452376616281,
+  0.2579979360165119,
+  0.28835063437139563,
+  0.3188300904430532,
+  0.350925934958123,
+  0.3848314933096426,
+  0.42057480301049466,
+  0.458183274052838,
+  0.4976837250274023,
+  0.5391024159806381,
+  0.5824650784040898,
+  0.6277969426914107,
+  0.6751227633498623,
+  0.7244668422128921,
+  0.775853049866786,
+  0.829304845476233,
+  0.8848452951698498,
+  0.942497089126609,
+  1.0022825574869039,
+  1.0642236851973577,
+  1.1283421258858297,
+  1.1946592148522128,
+  1.2631959812511864,
+  1.3339731595349034,
+  1.407011200216447,
+  1.4823302800086415,
+  1.5599503113873272,
+  1.6398909516233677,
+  1.7221716113234105,
+  1.8068114625156377,
+  1.8938294463134073,
+  1.9832442801866852,
+  2.075074464868551,
+  2.1693382909216234,
+  2.2660538449872063,
+  2.36523901573795,
+  2.4669114995532007,
+  2.5710888059345764,
+  2.6777882626779785,
+  2.7870270208169257,
+  2.898822059350997,
+  3.0131901897720907,
+  3.1301480604002863,
+  3.2497121605402226,
+  3.3718988244681087,
+  3.4967242352587946,
+  3.624204428461639,
+  3.754355295633311,
+  3.887192587735158,
+  4.022731918402185,
+  4.160988767090289,
+  4.301978482107941,
+  4.445716283538092,
+  4.592217266055746,
+  4.741496401646282,
+  4.893568542229298,
+  5.048448422192488,
+  5.20615066083972,
+  5.3666897647573375,
+  5.5300801301023865,
+  5.696336044816294,
+  5.865471690767354,
+  6.037501145825082,
+  6.212438385869475,
+  6.390297286737924,
+  6.571091626112461,
+  6.7548350853498045,
+  6.941541251256611,
+  7.131223617812143,
+  7.323895587840543,
+  7.5195704746346665,
+  7.7182615035334345,
+  7.919981813454504,
+  8.124744458384042,
+  8.332562408825165,
+  8.543448553206703,
+  8.757415699253682,
+  8.974476575321063,
+  9.194643831691977,
+  9.417930041841839,
+  9.644347703669503,
+  9.873909240696694,
+  10.106627003236781,
+  10.342513269534024,
+  10.58158024687427,
+  10.8238400726681,
+  11.069304815507364,
+  11.317986476196008,
+  11.569896988756009,
+  11.825048221409341,
+  12.083451977536606,
+  12.345119996613247,
+  12.610063955123938,
+  12.878295467455942,
+  13.149826086772048,
+  13.42466730586372,
+  13.702830557985108,
+  13.984327217668513,
+  14.269168601521828,
+  14.55736596900856,
+  14.848930523210871,
+  15.143873411576273,
+  15.44220572664832,
+  15.743938506781891,
+  16.04908273684337,
+  16.35764934889634,
+  16.66964922287304,
+  16.985093187232053,
+  17.30399201960269,
+  17.62635644741625,
+  17.95219714852476,
+  18.281524751807332,
+  18.614349837764564,
+  18.95068293910138,
+  19.290534541298456,
+  19.633915083172692,
+  19.98083495742689,
+  20.331304511189067,
+  20.685334046541502,
+  21.042933821039977,
+  21.404114048223256,
+  21.76888489811322,
+  22.137256497705877,
+  22.50923893145328,
+  22.884842241736916,
+  23.264076429332462,
+  23.6469514538663,
+  24.033477234264016,
+  24.42366364919083,
+  24.817520537484558,
+  25.21505769858089,
+  25.61628489293138,
+  26.021211842414342,
+  26.429848230738664,
+  26.842203703840827,
+  27.258287870275353,
+  27.678110301598522,
+  28.10168053274597,
+  28.529008062403893,
+  28.96010235337422,
+  29.39497283293396,
+  29.83362889318845,
+  30.276079891419332,
+  30.722335150426627,
+  31.172403958865512,
+  31.62629557157785,
+  32.08401920991837,
+  32.54558406207592,
+  33.010999283389665,
+  33.4802739966603,
+  33.953417292456834,
+  34.430438229418264,
+  34.911345834551085,
+  35.39614910352207,
+  35.88485700094671,
+  36.37747846067349,
+  36.87402238606382,
+  37.37449765026789,
+  37.87891309649659,
+  38.38727753828926,
+  38.89959975977785,
+  39.41588851594697,
+  39.93615253289054,
+  40.460400508064545,
+  40.98864111053629,
+  41.520882981230194,
+  42.05713473317016,
+  42.597404951718396,
+  43.141702194811224,
+  43.6900349931913,
+  44.24241185063697,
+  44.798841244188324,
+  45.35933162437017,
+  45.92389141541209,
+  46.49252901546552,
+  47.065252796817916,
+  47.64207110610409,
+  48.22299226451468,
+  48.808024568002054,
+  49.3971762874833,
+  49.9904556690408,
+  50.587870934119984,
+  51.189430279724725,
+  51.79514187861014,
+  52.40501387947288,
+  53.0190544071392,
+  53.637271562750364,
+  54.259673423945976,
+  54.88626804504493,
+  55.517063457223934,
+  56.15206766869424,
+  56.79128866487574,
+  57.43473440856916,
+  58.08241284012621,
+  58.734331877617365,
+  59.39049941699807,
+  60.05092333227251,
+  60.715611475655585,
+  61.38457167773311,
+  62.057811747619894,
+  62.7353394731159,
+  63.417162620860914,
+  64.10328893648692,
+  64.79372614476921,
+  65.48848194977529,
+  66.18756403501224,
+  66.89098006357258,
+  67.59873767827808,
+  68.31084450182222,
+  69.02730813691093,
+  69.74813616640164,
+  70.47333615344107,
+  71.20291564160104,
+  71.93688215501312,
+  72.67524319850172,
+  73.41800625771542,
+  74.16517879925733,
+  74.9167682708136,
+  75.67278210128072,
+  76.43322770089146,
+  77.1981124613393,
+  77.96744375590167,
+  78.74122893956174,
+  79.51947534912904,
+  80.30219030335869,
+  81.08938110306934,
+  81.88105503125999,
+  82.67721935322541,
+  83.4778813166706,
+  84.28304815182372,
+  85.09272707154808,
+  85.90692527145302,
+  86.72564993000343,
+  87.54890820862819,
+  88.3767072518277,
+  89.2090541872801,
+  90.04595612594655,
+  90.88742016217518,
+  91.73345337380438,
+  92.58406282226491,
+  93.43925555268066,
+  94.29903859396902,
+  95.16341895893969,
+  96.03240364439274,
+  96.9059996312159,
+  97.78421388448044,
+  98.6670533535366,
+  99.55452497210776
+];
+/**
+ * @license
+ * Copyright 2021 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 class Hct {
-  constructor(internalHue, internalChroma, internalTone) {
-    this.internalHue = internalHue;
-    this.internalChroma = internalChroma;
-    this.internalTone = internalTone;
-    this.setInternalState(this.toInt());
+  constructor(argb) {
+    this.argb = argb;
+    const cam = Cam16.fromInt(argb);
+    this.internalHue = cam.hue;
+    this.internalChroma = cam.chroma;
+    this.internalTone = lstarFromArgb(argb);
+    this.argb = argb;
   }
   static from(hue, chroma, tone) {
-    return new Hct(hue, chroma, tone);
+    return new Hct(HctSolver.solveToInt(hue, chroma, tone));
   }
   static fromInt(argb) {
-    const cam = Cam16.fromInt(argb);
-    const tone = lstarFromArgb(argb);
-    return new Hct(cam.hue, cam.chroma, tone);
+    return new Hct(argb);
   }
   toInt() {
-    return getInt(this.internalHue, this.internalChroma, this.internalTone);
+    return this.argb;
   }
   get hue() {
     return this.internalHue;
   }
   set hue(newHue) {
-    this.setInternalState(getInt(sanitizeDegreesDouble(newHue), this.internalChroma, this.internalTone));
+    this.setInternalState(HctSolver.solveToInt(newHue, this.internalChroma, this.internalTone));
   }
   get chroma() {
     return this.internalChroma;
   }
   set chroma(newChroma) {
-    this.setInternalState(getInt(this.internalHue, newChroma, this.internalTone));
+    this.setInternalState(HctSolver.solveToInt(this.internalHue, newChroma, this.internalTone));
   }
   get tone() {
     return this.internalTone;
   }
   set tone(newTone) {
-    this.setInternalState(getInt(this.internalHue, this.internalChroma, newTone));
+    this.setInternalState(HctSolver.solveToInt(this.internalHue, this.internalChroma, newTone));
   }
   setInternalState(argb) {
     const cam = Cam16.fromInt(argb);
-    const tone = lstarFromArgb(argb);
     this.internalHue = cam.hue;
     this.internalChroma = cam.chroma;
-    this.internalTone = tone;
+    this.internalTone = lstarFromArgb(argb);
+    this.argb = argb;
   }
-}
-const CHROMA_SEARCH_ENDPOINT = 0.4;
-const DE_MAX = 1;
-const DL_MAX = 0.2;
-const LIGHTNESS_SEARCH_ENDPOINT = 0.01;
-function getInt(hue, chroma, tone) {
-  return getIntInViewingConditions(sanitizeDegreesDouble(hue), chroma, clampDouble(0, 100, tone), ViewingConditions.DEFAULT);
-}
-function getIntInViewingConditions(hue, chroma, tone, viewingConditions) {
-  if (chroma < 1 || Math.round(tone) <= 0 || Math.round(tone) >= 100) {
-    return argbFromLstar(tone);
-  }
-  hue = sanitizeDegreesDouble(hue);
-  let high = chroma;
-  let mid = chroma;
-  let low = 0;
-  let isFirstLoop = true;
-  let answer = null;
-  while (Math.abs(low - high) >= CHROMA_SEARCH_ENDPOINT) {
-    const possibleAnswer = findCamByJ(hue, mid, tone);
-    if (isFirstLoop) {
-      if (possibleAnswer != null) {
-        return possibleAnswer.viewed(viewingConditions);
-      } else {
-        isFirstLoop = false;
-        mid = low + (high - low) / 2;
-        continue;
-      }
-    }
-    if (possibleAnswer === null) {
-      high = mid;
-    } else {
-      answer = possibleAnswer;
-      low = mid;
-    }
-    mid = low + (high - low) / 2;
-  }
-  if (answer === null) {
-    return argbFromLstar(tone);
-  }
-  return answer.viewed(viewingConditions);
-}
-function findCamByJ(hue, chroma, tone) {
-  let low = 0;
-  let high = 100;
-  let mid = 0;
-  let bestdL = 1e3;
-  let bestdE = 1e3;
-  let bestCam = null;
-  while (Math.abs(low - high) > LIGHTNESS_SEARCH_ENDPOINT) {
-    mid = low + (high - low) / 2;
-    const camBeforeClip = Cam16.fromJch(mid, chroma, hue);
-    const clipped = camBeforeClip.toInt();
-    const clippedLstar = lstarFromArgb(clipped);
-    const dL = Math.abs(tone - clippedLstar);
-    if (dL < DL_MAX) {
-      const camClipped = Cam16.fromInt(clipped);
-      const dE = camClipped.distance(Cam16.fromJch(camClipped.j, camClipped.chroma, hue));
-      if (dE <= DE_MAX && dE <= bestdE) {
-        bestdL = dL;
-        bestdE = dE;
-        bestCam = camClipped;
-      }
-    }
-    if (bestdL === 0 && bestdE === 0) {
-      break;
-    }
-    if (clippedLstar < tone) {
-      low = mid;
-    } else {
-      high = mid;
-    }
-  }
-  return bestCam;
 }
 /**
  * @license
@@ -2592,7 +3063,7 @@ class Blend {
     const toHct = Hct.fromInt(sourceColor);
     const differenceDegrees$1 = differenceDegrees(fromHct.hue, toHct.hue);
     const rotationDegrees = Math.min(differenceDegrees$1 * 0.5, 15);
-    const outputHue = sanitizeDegreesDouble(fromHct.hue + rotationDegrees * Blend.rotationDirection(fromHct.hue, toHct.hue));
+    const outputHue = sanitizeDegreesDouble(fromHct.hue + rotationDegrees * rotationDirection(fromHct.hue, toHct.hue));
     return Hct.from(outputHue, fromHct.chroma, fromHct.tone).toInt();
   }
   static hctHue(from, to, amount) {
@@ -2615,21 +3086,6 @@ class Blend {
     const astar = fromA + (toA - fromA) * amount;
     const bstar = fromB + (toB - fromB) * amount;
     return Cam16.fromUcs(jstar, astar, bstar).toInt();
-  }
-  static rotationDirection(from, to) {
-    const a2 = to - from;
-    const b2 = to - from + 360;
-    const c2 = to - from - 360;
-    const aAbs = Math.abs(a2);
-    const bAbs = Math.abs(b2);
-    const cAbs = Math.abs(c2);
-    if (aAbs <= bAbs && aAbs <= cAbs) {
-      return a2 >= 0 ? 1 : -1;
-    } else if (bAbs <= aAbs && bAbs <= cAbs) {
-      return b2 >= 0 ? 1 : -1;
-    } else {
-      return c2 >= 0 ? 1 : -1;
-    }
   }
 }
 /**
@@ -2687,18 +3143,30 @@ class TonalPalette {
  * limitations under the License.
  */
 class CorePalette {
-  constructor(argb) {
+  constructor(argb, isContent) {
     const hct = Hct.fromInt(argb);
     const hue = hct.hue;
-    this.a1 = TonalPalette.fromHueAndChroma(hue, Math.max(48, hct.chroma));
-    this.a2 = TonalPalette.fromHueAndChroma(hue, 16);
-    this.a3 = TonalPalette.fromHueAndChroma(hue + 60, 24);
-    this.n1 = TonalPalette.fromHueAndChroma(hue, 4);
-    this.n2 = TonalPalette.fromHueAndChroma(hue, 8);
+    const chroma = hct.chroma;
+    if (isContent) {
+      this.a1 = TonalPalette.fromHueAndChroma(hue, chroma);
+      this.a2 = TonalPalette.fromHueAndChroma(hue, chroma / 3);
+      this.a3 = TonalPalette.fromHueAndChroma(hue + 60, chroma / 2);
+      this.n1 = TonalPalette.fromHueAndChroma(hue, Math.min(chroma / 12, 4));
+      this.n2 = TonalPalette.fromHueAndChroma(hue, Math.min(chroma / 6, 8));
+    } else {
+      this.a1 = TonalPalette.fromHueAndChroma(hue, Math.max(48, chroma));
+      this.a2 = TonalPalette.fromHueAndChroma(hue, 16);
+      this.a3 = TonalPalette.fromHueAndChroma(hue + 60, 24);
+      this.n1 = TonalPalette.fromHueAndChroma(hue, 4);
+      this.n2 = TonalPalette.fromHueAndChroma(hue, 8);
+    }
     this.error = TonalPalette.fromHueAndChroma(25, 84);
   }
   static of(argb) {
-    return new CorePalette(argb);
+    return new CorePalette(argb, false);
+  }
+  static contentOf(argb) {
+    return new CorePalette(argb, true);
   }
 }
 /**
@@ -2724,11 +3192,11 @@ class Scheme {
   get primary() {
     return this.props.primary;
   }
-  get primaryContainer() {
-    return this.props.primaryContainer;
-  }
   get onPrimary() {
     return this.props.onPrimary;
+  }
+  get primaryContainer() {
+    return this.props.primaryContainer;
   }
   get onPrimaryContainer() {
     return this.props.onPrimaryContainer;
@@ -2736,11 +3204,11 @@ class Scheme {
   get secondary() {
     return this.props.secondary;
   }
-  get secondaryContainer() {
-    return this.props.secondaryContainer;
-  }
   get onSecondary() {
     return this.props.onSecondary;
+  }
+  get secondaryContainer() {
+    return this.props.secondaryContainer;
   }
   get onSecondaryContainer() {
     return this.props.onSecondaryContainer;
@@ -2803,7 +3271,18 @@ class Scheme {
     return this.props.inversePrimary;
   }
   static light(argb) {
-    const core = CorePalette.of(argb);
+    return Scheme.lightFromCorePalette(CorePalette.of(argb));
+  }
+  static dark(argb) {
+    return Scheme.darkFromCorePalette(CorePalette.of(argb));
+  }
+  static lightContent(argb) {
+    return Scheme.lightFromCorePalette(CorePalette.contentOf(argb));
+  }
+  static darkContent(argb) {
+    return Scheme.darkFromCorePalette(CorePalette.contentOf(argb));
+  }
+  static lightFromCorePalette(core) {
     return new Scheme({
       primary: core.a1.tone(40),
       onPrimary: core.a1.tone(100),
@@ -2834,8 +3313,7 @@ class Scheme {
       inversePrimary: core.a1.tone(80)
     });
   }
-  static dark(argb) {
-    const core = CorePalette.of(argb);
+  static darkFromCorePalette(core) {
     return new Scheme({
       primary: core.a1.tone(80),
       onPrimary: core.a1.tone(20),
@@ -2989,14 +3467,32 @@ function customColor(source, color) {
   };
 }
 function applyTheme(theme, options) {
-  var _a;
+  var _a, _b;
   const target = (options === null || options === void 0 ? void 0 : options.target) || document.body;
   const isDark = (_a = options === null || options === void 0 ? void 0 : options.dark) !== null && _a !== void 0 ? _a : false;
   const scheme = isDark ? theme.schemes.dark : theme.schemes.light;
+  setSchemeProperties(target, scheme);
+  if (options === null || options === void 0 ? void 0 : options.brightnessSuffix) {
+    setSchemeProperties(target, theme.schemes.dark, "-dark");
+    setSchemeProperties(target, theme.schemes.light, "-light");
+  }
+  if (options === null || options === void 0 ? void 0 : options.paletteTones) {
+    const tones = (_b = options === null || options === void 0 ? void 0 : options.paletteTones) !== null && _b !== void 0 ? _b : [];
+    for (const [key, palette] of Object.entries(theme.palettes)) {
+      const paletteKey = key.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
+      for (const tone of tones) {
+        const token = `--md-ref-palette-${paletteKey}-${paletteKey}${tone}`;
+        const color = hexFromArgb(palette.tone(tone));
+        target.style.setProperty(token, color);
+      }
+    }
+  }
+}
+function setSchemeProperties(target, scheme, suffix = "") {
   for (const [key, value] of Object.entries(scheme.toJSON())) {
     const token = key.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
     const color = hexFromArgb(value);
-    target.style.setProperty(`--md-sys-color-${token}`, color);
+    target.style.setProperty(`--md-sys-color-${token}${suffix}`, color);
   }
 }
 var __defProp = Object.defineProperty;
@@ -3132,7 +3628,12 @@ let MaterialThemeControl = class extends s {
     }
     const target = this.shadowRoot.querySelector("main");
     const theme = themeFromSourceColor(argbFromHex(source));
-    applyTheme(theme, { target, dark });
+    applyTheme(theme, {
+      target,
+      dark,
+      brightnessSuffix: true,
+      paletteTones: [100, 99, 98, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0]
+    });
   }
   firstUpdated() {
     var _a;
@@ -3150,6 +3651,11 @@ let MaterialThemeControl = class extends s {
   }
 };
 MaterialThemeControl.styles = r$2`
+    :host {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
     .theme-options {
       font-size: 1.5rem;
       font-family: "Roboto", sans-serif;
