@@ -1,4 +1,4 @@
-# Material Theme control
+# Material Theme Control
 
 Drop in component to style a Material 3 web app.
 
