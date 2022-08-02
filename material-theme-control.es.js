@@ -3632,7 +3632,7 @@ let MaterialThemeControl = class extends s {
       target,
       dark,
       brightnessSuffix: true,
-      paletteTones: [100, 99, 98, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0]
+      paletteTones: [100, 99, 98, 95, 90, 80, 70, 60, 50, 40, 35, 30, 25, 20, 10, 0]
     });
   }
   firstUpdated() {
