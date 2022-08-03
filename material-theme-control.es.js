@@ -3466,35 +3466,6 @@ function customColor(source, color) {
     }
   };
 }
-function applyTheme(theme, options) {
-  var _a, _b;
-  const target = (options === null || options === void 0 ? void 0 : options.target) || document.body;
-  const isDark = (_a = options === null || options === void 0 ? void 0 : options.dark) !== null && _a !== void 0 ? _a : false;
-  const scheme = isDark ? theme.schemes.dark : theme.schemes.light;
-  setSchemeProperties(target, scheme);
-  if (options === null || options === void 0 ? void 0 : options.brightnessSuffix) {
-    setSchemeProperties(target, theme.schemes.dark, "-dark");
-    setSchemeProperties(target, theme.schemes.light, "-light");
-  }
-  if (options === null || options === void 0 ? void 0 : options.paletteTones) {
-    const tones = (_b = options === null || options === void 0 ? void 0 : options.paletteTones) !== null && _b !== void 0 ? _b : [];
-    for (const [key, palette] of Object.entries(theme.palettes)) {
-      const paletteKey = key.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
-      for (const tone of tones) {
-        const token = `--md-ref-palette-${paletteKey}${tone}`;
-        const color = hexFromArgb(palette.tone(tone));
-        target.style.setProperty(token, color);
-      }
-    }
-  }
-}
-function setSchemeProperties(target, scheme, suffix = "") {
-  for (const [key, value] of Object.entries(scheme.toJSON())) {
-    const token = key.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
-    const color = hexFromArgb(value);
-    target.style.setProperty(`--md-sys-color-${token}${suffix}`, color);
-  }
-}
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __decorateClass = (decorators, target, key, kind) => {
@@ -3511,10 +3482,10 @@ let MaterialThemeControl = class extends s {
   constructor() {
     super(...arguments);
     this.showOptions = false;
-    this.dark = localStorage.getItem("theme-dark") === "true";
     this.color = localStorage.getItem("theme-color") || "#6750A4";
   }
   render() {
+    const dark = document.body.classList.contains("dark-theme");
     return $` <mwc-icon-button @click=${this.toggleOptions}>
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -3559,7 +3530,7 @@ let MaterialThemeControl = class extends s {
           <div class="row option">
             <label for="brightness">Brightness</label>
             <mwc-icon-button id="brightness" @click=${this.toggle}>
-              ${!this.dark ? $`<svg
+              ${!dark ? $`<svg
                     class="icon"
                     viewBox="0 0 48 48"
                     xmlns="http://www.w3.org/2000/svg"
@@ -3592,9 +3563,13 @@ let MaterialThemeControl = class extends s {
     }
   }
   toggle() {
-    this.dark = !this.dark;
-    localStorage.setItem("theme-dark", this.dark.toString());
-    this.updateTheme();
+    const dark = document.body.classList.contains("dark-theme");
+    if (!dark) {
+      document.body.classList.add("dark-theme");
+    } else {
+      document.body.classList.remove("dark-theme");
+    }
+    this.requestUpdate();
   }
   setColor(val) {
     this.color = val;
@@ -3620,33 +3595,88 @@ let MaterialThemeControl = class extends s {
   }
   updateTheme() {
     const source = this.color;
-    const dark = this.dark;
-    if (this.dark) {
+    const target = this.shadowRoot.querySelector("main");
+    const theme = themeFromSourceColor(argbFromHex(source));
+    const tones = Array.from(Array(101).keys());
+    let sb = [];
+    sb.push(`:root {`);
+    const applyScheme = (scheme, options) => {
+      var _a;
+      for (const [key, value] of Object.entries(scheme.toJSON())) {
+        const token = key.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
+        const color = hexFromArgb(value);
+        const tokenName = `--md-sys-color-${token}${(_a = options == null ? void 0 : options.suffix) != null ? _a : ""}`;
+        if (options == null ? void 0 : options.apply) {
+          target.style.setProperty(tokenName, color);
+        } else {
+          sb.push(`  ${tokenName}: ${color};`);
+        }
+      }
+    };
+    applyScheme(theme.schemes.light, { suffix: "-light" });
+    applyScheme(theme.schemes.dark, { suffix: "-dark" });
+    sb.push(`}`);
+    sb.push(`:root, .light-theme {`);
+    sb.push(`  color-scheme: light;`);
+    applyScheme(theme.schemes.light);
+    sb.push(`}`);
+    sb.push(`.dark-theme {`);
+    sb.push(`  color-scheme: dark;`);
+    applyScheme(theme.schemes.dark);
+    sb.push(`}`);
+    this.findStyleTag("theme").innerHTML = sb.join("\n");
+    const applyPalette = (palette, group, tones2, options) => {
+      const sb2 = [];
+      sb2.push(`:root {`);
+      for (const tone of tones2) {
+        const raw = palette.tone(tone);
+        const tokenName = `--md-ref-palette-${group}${tone}`;
+        const color = hexFromArgb(raw);
+        if (options == null ? void 0 : options.apply) {
+          target.style.setProperty(tokenName, color);
+        } else {
+          sb2.push(`  ${tokenName}: ${color};`);
+        }
+      }
+      sb2.push(`}`);
+      return sb2.join("\n");
+    };
+    const primaryPalette = applyPalette(theme.palettes.primary, "primary", tones);
+    this.findStyleTag("palette-primary").innerHTML = primaryPalette;
+    const secondaryPalette = applyPalette(theme.palettes.secondary, "secondary", tones);
+    this.findStyleTag("palette-secondary").innerHTML = secondaryPalette;
+    const tertiaryPalette = applyPalette(theme.palettes.tertiary, "tertiary", tones);
+    this.findStyleTag("palette-tertiary").innerHTML = tertiaryPalette;
+    const neutralPalette = applyPalette(theme.palettes.neutral, "neutral", tones);
+    this.findStyleTag("palette-neutral").innerHTML = neutralPalette;
+    const neutralVariantPalette = applyPalette(theme.palettes.neutralVariant, "neutral-variant", tones);
+    this.findStyleTag("palette-neutral-variant").innerHTML = neutralVariantPalette;
+  }
+  findStyleTag(id) {
+    const styleId = `generated-material-${id}`;
+    let style = document.getElementById(styleId);
+    if (style == null) {
+      style = document.createElement("style");
+      style.id = styleId;
+      document.head.appendChild(style);
+    }
+    return style;
+  }
+  toggleClass(dark) {
+    if (dark) {
       document.body.classList.add("dark-theme");
     } else {
       document.body.classList.remove("dark-theme");
     }
-    const target = this.shadowRoot.querySelector("main");
-    const theme = themeFromSourceColor(argbFromHex(source));
-    applyTheme(theme, {
-      target,
-      dark,
-      brightnessSuffix: true,
-      paletteTones: [100, 99, 98, 95, 90, 80, 70, 60, 50, 40, 35, 30, 25, 20, 10, 0]
-    });
+    this.requestUpdate();
   }
   firstUpdated() {
-    var _a;
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)");
-    const dark = (_a = localStorage.getItem("theme-dark")) != null ? _a : prefersDark.matches.toString();
-    this.dark = dark === "true";
-    if (this.dark) {
-      document.body.classList.add("dark-theme");
-    }
     this.updateTheme();
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)");
+    this.toggleClass(prefersDark.matches);
     prefersDark.addEventListener("change", (e2) => {
-      this.dark = e2.matches;
-      this.updateTheme();
+      const dark = e2.matches;
+      this.toggleClass(dark);
     });
   }
 };
@@ -3734,9 +3764,6 @@ MaterialThemeControl.styles = r$2`
 __decorateClass([
   t$1()
 ], MaterialThemeControl.prototype, "showOptions", 2);
-__decorateClass([
-  e$3({ type: Boolean })
-], MaterialThemeControl.prototype, "dark", 2);
 __decorateClass([
   e$3()
 ], MaterialThemeControl.prototype, "color", 2);
