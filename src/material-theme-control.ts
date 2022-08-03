@@ -302,6 +302,10 @@ export class MaterialThemeControl extends LitElement {
     const tertiaryPalette = applyPalette(theme.palettes.tertiary, "tertiary", tones);
     this.findStyleTag('palette-tertiary').innerHTML = tertiaryPalette;
 
+    // Error
+    const errorPalette = applyPalette(theme.palettes.error, "error", tones);
+    this.findStyleTag('palette-error').innerHTML = errorPalette;
+
     // Neutral
     const neutralPalette = applyPalette(theme.palettes.neutral, "neutral", tones);
     this.findStyleTag('palette-neutral').innerHTML = neutralPalette;
