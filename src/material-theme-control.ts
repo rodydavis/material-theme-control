@@ -5,7 +5,6 @@ import "@material/mwc-icon-button";
 import {
   argbFromHex,
   themeFromSourceColor,
-  applyTheme,
   Scheme,
   hexFromArgb,
   TonalPalette,
