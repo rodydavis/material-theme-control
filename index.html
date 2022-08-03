@@ -1,75 +1,78 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/src/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Material Theme Control</title>
-    <link
-      href="https://fonts.googleapis.com/css?family=Material+Icons&display=block"
-      rel="stylesheet"
-    />
-    <link
-      rel="stylesheet"
-      href="https://material-foundation.github.io/material-tokens/css/baseline.css"
-    />
-    <style>
-      body {
-        margin: 0;
-        padding: 0;
-        background-color: var(--md-sys-color-background);
-        color: var(--md-sys-color-on-background);
-        font-family: "Roboto", "Helvetica", "Arial", sans-serif;
-      }
-      header {
-        padding: 16px;
-      }
-      .row {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-      }
-      .spacer {
-        flex: 1;
-      }
-      .colors {
-        padding: 16px;
-      }
-      .color-box {
-        border-radius: 16px;
-        padding: 10px 20px;
-        text-align: center;
-        display: flex;
-        align-items: center;
-        border: 1px solid #eee;
-        margin: 0 8px;
-      }
-    </style>
-  </head>
-  <body>
-    <header class="row">
-      <h1 class="display-small">Material Theme Control</h1>
-      <div class="spacer"></div>
-      <material-theme-control> </material-theme-control>
-    </header>
-    <div class="row colors">
-      <div class="color-box primary">Primary</div>
-      <div class="color-box on-primary">On Primary</div>
-      <div class="color-box primary-container">Primary Container</div>
-      <div class="color-box on-primary-container">On Primary Container</div>
-    </div>
-    <div class="row colors">
-      <div class="color-box secondary">Secondary</div>
-      <div class="color-box on-secondary">On Secondary</div>
-      <div class="color-box secondary-container">Secondary Container</div>
-      <div class="color-box on-secondary-container">On Secondary Container</div>
-    </div>
-    <div class="row colors">
-      <div class="color-box tertiary">Tertiary</div>
-      <div class="color-box on-tertiary">On Tertiary</div>
-      <div class="color-box tertiary-container">Tertiary Container</div>
-      <div class="color-box on-tertiary-container">On Tertiary Container</div>
-    </div>
-    <script type="module" src="/src/material-theme-control.ts"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/src/favicon.svg" />
+  <meta name="color-scheme" content="dark light">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Material Theme Control</title>
+  <link href="https://fonts.googleapis.com/css?family=Material+Icons&display=block" rel="stylesheet" />
+  <link rel="stylesheet" href="https://material-foundation.github.io/material-tokens/css/baseline.css" />
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: var(--md-sys-color-background);
+      color: var(--md-sys-color-on-background);
+      font-family: "Roboto", "Helvetica", "Arial", sans-serif;
+    }
+
+    header {
+      padding: 16px;
+    }
+
+    .row {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+    }
+
+    .spacer {
+      flex: 1;
+    }
+
+    .colors {
+      padding: 16px;
+    }
+
+    .color-box {
+      border-radius: 16px;
+      padding: 10px 20px;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      border: 1px solid #eee;
+      margin: 0 8px;
+    }
+  </style>
+</head>
+
+<body>
+  <header class="row">
+    <h1 class="display-small">Material Theme Control</h1>
+    <div class="spacer"></div>
+    <material-theme-control> </material-theme-control>
+  </header>
+  <div class="row colors">
+    <div class="color-box primary">Primary</div>
+    <div class="color-box on-primary">On Primary</div>
+    <div class="color-box primary-container">Primary Container</div>
+    <div class="color-box on-primary-container">On Primary Container</div>
+  </div>
+  <div class="row colors">
+    <div class="color-box secondary">Secondary</div>
+    <div class="color-box on-secondary">On Secondary</div>
+    <div class="color-box secondary-container">Secondary Container</div>
+    <div class="color-box on-secondary-container">On Secondary Container</div>
+  </div>
+  <div class="row colors">
+    <div class="color-box tertiary">Tertiary</div>
+    <div class="color-box on-tertiary">On Tertiary</div>
+    <div class="color-box tertiary-container">Tertiary Container</div>
+    <div class="color-box on-tertiary-container">On Tertiary Container</div>
+  </div>
+  <script type="module" src="/src/material-theme-control.ts"></script>
+</body>
+
 </html>
