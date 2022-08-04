@@ -2038,7 +2038,7 @@ IconButton = __decorate([
   n$1("mwc-icon-button")
 ], IconButton);
 function WorkerWrapper() {
-  return new Worker("/material-theme-control/assets/worker.36140def.js", {
+  return new Worker("/material-theme-control/assets/worker.27a836d1.js", {
     "type": "module"
   });
 }
@@ -2058,6 +2058,7 @@ let MaterialThemeControl = class extends s {
   constructor() {
     super(...arguments);
     this.rgb = false;
+    this.expanded = false;
     this.showOptions = false;
     this.color = localStorage.getItem("theme-color") || "#6750A4";
   }
@@ -2177,7 +2178,13 @@ let MaterialThemeControl = class extends s {
       const { id, content } = e2.data;
       this.updateStyle(id, content);
     });
-    w2.postMessage({ source, rgb: this.rgb });
+    const defaultTones = [100, 99, 98, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0];
+    const fullTones = Array.from(Array(101).keys());
+    w2.postMessage({
+      source,
+      rgb: this.rgb,
+      tones: this.expanded ? fullTones : defaultTones
+    });
   }
   updateStyle(id, content) {
     const styleId = `generated-material-${id}`;
@@ -2295,6 +2302,9 @@ MaterialThemeControl.styles = r$2`
 __decorateClass([
   e$3({ type: Boolean })
 ], MaterialThemeControl.prototype, "rgb", 2);
+__decorateClass([
+  e$3({ type: Boolean })
+], MaterialThemeControl.prototype, "expanded", 2);
 __decorateClass([
   t$1()
 ], MaterialThemeControl.prototype, "showOptions", 2);

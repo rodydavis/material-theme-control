@@ -1428,10 +1428,10 @@ function customColor(source, color) {
   };
 }
 onmessage = function(e) {
-  const { source, rgb } = e.data;
+  const { source, rgb, tones } = e.data;
   const theme = themeFromSourceColor(argbFromHex(source));
   applySchemes(theme, source, rgb);
-  applyPalettes(theme, rgb);
+  applyPalettes(theme, tones, rgb);
 };
 function applySchemes(theme, source, rgb) {
   let sb = [];
@@ -1458,8 +1458,7 @@ function applySchemes(theme, source, rgb) {
   sb.push(`}`);
   updateStyle("theme", sb.join("\n"));
 }
-function applyPalettes(theme, rgb) {
-  const tones = Array.from(Array(101).keys());
+function applyPalettes(theme, tones, rgb) {
   const applyPalette = (palette, group, tones2) => {
     const sb = [];
     sb.push(`:root {`);
