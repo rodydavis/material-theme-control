@@ -2,13 +2,7 @@ import { html, css, LitElement } from "lit";
 import { customElement, state, property, query } from "lit/decorators.js";
 
 import "@material/mwc-icon-button";
-import {
-  argbFromHex,
-  themeFromSourceColor,
-  Scheme,
-  hexFromArgb,
-  TonalPalette,
-} from "@material/material-color-utilities";
+import Worker from './worker.js?worker'
 
 export const tagName = "material-theme-control";
 
@@ -96,6 +90,7 @@ export class MaterialThemeControl extends LitElement {
     }
   `;
 
+  @property({ type: Boolean }) rgb = false;
   @state() showOptions = false;
   @property() color = localStorage.getItem("theme-color") || "#6750A4";
   @query("#theme-options") options!: HTMLDivElement;
@@ -222,109 +217,29 @@ export class MaterialThemeControl extends LitElement {
 
   private updateTheme() {
     const source = this.color;
-    const target = this.shadowRoot!.querySelector("main") as HTMLElement;
-    const theme = themeFromSourceColor(argbFromHex(source));
-    // const tones = [100, 99, 98, 95, 90, 80, 70, 60, 50, 40, 35, 30, 25, 20, 10, 0];
-    const tones = Array.from(Array(101).keys());
-    let sb: string[] = [];
-    sb.push(`:root {`);
-    // sb.push(` color-scheme: light dark;`);
-
-    // Schemes
-    const applyScheme = (scheme: Scheme, options?: {
-      suffix?: string,
-      apply?: boolean,
-    }) => {
-      for (const [key, value] of Object.entries(scheme.toJSON())) {
-        const token = key.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
-        const color = hexFromArgb(value);
-        const tokenName = `--md-sys-color-${token}${options?.suffix ?? ''}`;
-        if (options?.apply) {
-          target.style.setProperty(tokenName, color);
-        } else {
-          sb.push(`  ${tokenName}: ${color};`);
-        }
-      }
-    };
-
-    // Light theme
-    applyScheme(theme.schemes.light, { suffix: '-light' });
-
-    // Dark theme
-    applyScheme(theme.schemes.dark, { suffix: '-dark' });
-
-    sb.push(`}`);
-
-    // Apply light theme
-    sb.push(`:root, .light-theme {`);
-    sb.push(`  color-scheme: light;`);
-    applyScheme(theme.schemes.light);
-    sb.push(`}`);
-
-    // Set dark theme
-    sb.push(`.dark-theme {`);
-    sb.push(`  color-scheme: dark;`);
-    applyScheme(theme.schemes.dark);
-    sb.push(`}`);
-
-    this.findStyleTag('theme').innerHTML = sb.join("\n");
-
-    // Palettes
-    const applyPalette = (palette: TonalPalette, group: string, tones: number[], options?: {
-      apply?: boolean,
-    }) => {
-      const sb: string[] = [];
-      sb.push(`:root {`);
-      for (const tone of tones) {
-        const raw = palette.tone(tone);
-        const tokenName = `--md-ref-palette-${group}${tone}`;
-        const color = hexFromArgb(raw);
-
-        if (options?.apply) {
-          target.style.setProperty(tokenName, color);
-        } else {
-          sb.push(`  ${tokenName}: ${color};`);
-        }
-      }
-      sb.push(`}`);
-      return sb.join("\n");
-    };
-
-    // Primary
-    const primaryPalette = applyPalette(theme.palettes.primary, "primary", tones);;
-    this.findStyleTag('palette-primary').innerHTML = primaryPalette;
-
-    // Secondary
-    const secondaryPalette = applyPalette(theme.palettes.secondary, "secondary", tones);;
-    this.findStyleTag('palette-secondary').innerHTML = secondaryPalette;
-
-    // Tertiary
-    const tertiaryPalette = applyPalette(theme.palettes.tertiary, "tertiary", tones);
-    this.findStyleTag('palette-tertiary').innerHTML = tertiaryPalette;
-
-    // Error
-    const errorPalette = applyPalette(theme.palettes.error, "error", tones);
-    this.findStyleTag('palette-error').innerHTML = errorPalette;
-
-    // Neutral
-    const neutralPalette = applyPalette(theme.palettes.neutral, "neutral", tones);
-    this.findStyleTag('palette-neutral').innerHTML = neutralPalette;
-
-    // Neutral Variant
-    const neutralVariantPalette = applyPalette(theme.palettes.neutralVariant, "neutral-variant", tones);
-    this.findStyleTag('palette-neutral-variant').innerHTML = neutralVariantPalette;
-
+    // Performance test
+    const w = new Worker();
+    w.addEventListener('message', (e) => {
+      const { id, content } = e.data;
+      this.updateStyle(id, content);
+    });
+    w.postMessage({ source, rgb: this.rgb });
   }
 
-  private findStyleTag(id: string) {
+  private updateStyle(id: string, content: string) {
     const styleId = `generated-material-${id}`;
-    let style = document.getElementById(styleId);
+    let style = document.getElementById(styleId) as HTMLStyleElement | null;
     if (style == null) {
       style = document.createElement("style");
       style.id = styleId;
+      style.type = 'text/css';
       document.head.appendChild(style);
     }
-    return style;
+    // Apply in chunks to avoid memory issues
+    const chunks = content.match(/.{1,500}/g) || [];
+    for (const chunk of chunks) {
+      style.appendChild(document.createTextNode(chunk));
+    }
   }
 
   private toggleClass(dark: boolean) {

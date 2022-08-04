@@ -33,7 +33,8 @@
     }
 
     .colors {
-      padding: 16px;
+      padding-top: 16px;
+      padding-bottom: 16px;
     }
 
     .color-box {
@@ -45,6 +46,158 @@
       border: 1px solid #eee;
       margin: 0 8px;
     }
+
+    main {
+      padding: 16px;
+    }
+
+    .palettes {
+      width: 100%;
+      height: 70px;
+      border: 1px solid var(--md-sys-color-outline);
+    }
+
+    .palette-primary {
+      background: linear-gradient(45deg,
+          var(--md-ref-palette-primary0),
+          var(--md-ref-palette-primary10),
+          var(--md-ref-palette-primary20),
+          var(--md-ref-palette-primary30),
+          var(--md-ref-palette-primary40),
+          var(--md-ref-palette-primary50),
+          var(--md-ref-palette-primary60),
+          var(--md-ref-palette-primary70),
+          var(--md-ref-palette-primary80),
+          var(--md-ref-palette-primary90),
+          var(--md-ref-palette-primary98),
+          var(--md-ref-palette-primary99),
+          var(--md-ref-palette-primary100));
+    }
+
+    .palette-secondary {
+      background: linear-gradient(45deg,
+          var(--md-ref-palette-secondary0),
+          var(--md-ref-palette-secondary10),
+          var(--md-ref-palette-secondary20),
+          var(--md-ref-palette-secondary30),
+          var(--md-ref-palette-secondary40),
+          var(--md-ref-palette-secondary50),
+          var(--md-ref-palette-secondary60),
+          var(--md-ref-palette-secondary70),
+          var(--md-ref-palette-secondary80),
+          var(--md-ref-palette-secondary90),
+          var(--md-ref-palette-secondary98),
+          var(--md-ref-palette-secondary99),
+          var(--md-ref-palette-secondary100));
+    }
+
+    .palette-tertiary {
+      background: linear-gradient(45deg,
+          var(--md-ref-palette-tertiary0),
+          var(--md-ref-palette-tertiary10),
+          var(--md-ref-palette-tertiary20),
+          var(--md-ref-palette-tertiary30),
+          var(--md-ref-palette-tertiary40),
+          var(--md-ref-palette-tertiary50),
+          var(--md-ref-palette-tertiary60),
+          var(--md-ref-palette-tertiary70),
+          var(--md-ref-palette-tertiary80),
+          var(--md-ref-palette-tertiary90),
+          var(--md-ref-palette-tertiary98),
+          var(--md-ref-palette-tertiary99),
+          var(--md-ref-palette-tertiary100));
+    }
+
+    .palette-error {
+      background: linear-gradient(45deg,
+          var(--md-ref-palette-error0),
+          var(--md-ref-palette-error10),
+          var(--md-ref-palette-error20),
+          var(--md-ref-palette-error30),
+          var(--md-ref-palette-error40),
+          var(--md-ref-palette-error50),
+          var(--md-ref-palette-error60),
+          var(--md-ref-palette-error70),
+          var(--md-ref-palette-error80),
+          var(--md-ref-palette-error90),
+          var(--md-ref-palette-error98),
+          var(--md-ref-palette-error99),
+          var(--md-ref-palette-error100));
+    }
+
+    .palette-neutral {
+      background: linear-gradient(45deg,
+          var(--md-ref-palette-neutral0),
+          var(--md-ref-palette-neutral10),
+          var(--md-ref-palette-neutral20),
+          var(--md-ref-palette-neutral30),
+          var(--md-ref-palette-neutral40),
+          var(--md-ref-palette-neutral50),
+          var(--md-ref-palette-neutral60),
+          var(--md-ref-palette-neutral70),
+          var(--md-ref-palette-neutral80),
+          var(--md-ref-palette-neutral90),
+          var(--md-ref-palette-neutral98),
+          var(--md-ref-palette-neutral99),
+          var(--md-ref-palette-neutral100));
+    }
+
+    .palette-neutral-variant {
+      background: linear-gradient(45deg,
+          var(--md-ref-palette-neutral-variant0),
+          var(--md-ref-palette-neutral-variant10),
+          var(--md-ref-palette-neutral-variant20),
+          var(--md-ref-palette-neutral-variant30),
+          var(--md-ref-palette-neutral-variant40),
+          var(--md-ref-palette-neutral-variant50),
+          var(--md-ref-palette-neutral-variant60),
+          var(--md-ref-palette-neutral-variant70),
+          var(--md-ref-palette-neutral-variant80),
+          var(--md-ref-palette-neutral-variant90),
+          var(--md-ref-palette-neutral-variant98),
+          var(--md-ref-palette-neutral-variant99),
+          var(--md-ref-palette-neutral-variant100));
+    }
+
+    .background {
+      background-color: var(--md-sys-color-background);
+      color: var(--md-sys-color-on-background);
+    }
+
+    .on-background {
+      background-color: var(--md-sys-color-on-background);
+      color: var(--md-sys-color-background);
+    }
+
+    .surface {
+      background-color: var(--md-sys-color-surface);
+      color: var(--md-sys-color-on-surface);
+    }
+
+    .on-surface {
+      background-color: var(--md-sys-color-on-surface);
+      color: var(--md-sys-color-surface);
+    }
+
+    .surface-1 {
+      background-color: rgba(var(--md-sys-color-primary-rgb), 0.05);
+    }
+
+    .surface-2 {
+      background-color: rgba(var(--md-sys-color-primary-rgb), 0.08);
+    }
+
+    .surface-3 {
+      background-color: rgba(var(--md-sys-color-primary-rgb), 0.11);
+    }
+
+    .surface-4 {
+      background-color: rgba(var(--md-sys-color-primary-rgb), 0.12);
+    }
+
+    .surface-5 {
+      background-color: rgba(var(--md-sys-color-primary-rgb), 0.14);
+    }
   </style>
 </head>
 
@@ -52,26 +205,55 @@
   <header class="row">
     <h1 class="display-small">Material Theme Control</h1>
     <div class="spacer"></div>
-    <material-theme-control> </material-theme-control>
+    <material-theme-control rgb> </material-theme-control>
   </header>
-  <div class="row colors">
-    <div class="color-box primary">Primary</div>
-    <div class="color-box on-primary">On Primary</div>
-    <div class="color-box primary-container">Primary Container</div>
-    <div class="color-box on-primary-container">On Primary Container</div>
-  </div>
-  <div class="row colors">
-    <div class="color-box secondary">Secondary</div>
-    <div class="color-box on-secondary">On Secondary</div>
-    <div class="color-box secondary-container">Secondary Container</div>
-    <div class="color-box on-secondary-container">On Secondary Container</div>
-  </div>
-  <div class="row colors">
-    <div class="color-box tertiary">Tertiary</div>
-    <div class="color-box on-tertiary">On Tertiary</div>
-    <div class="color-box tertiary-container">Tertiary Container</div>
-    <div class="color-box on-tertiary-container">On Tertiary Container</div>
-  </div>
+  <main>
+    <div class="row colors">
+      <div class="color-box primary">Primary</div>
+      <div class="color-box on-primary">On Primary</div>
+      <div class="color-box primary-container">Primary Container</div>
+      <div class="color-box on-primary-container">On Primary Container</div>
+    </div>
+    <div class="row colors">
+      <div class="color-box secondary">Secondary</div>
+      <div class="color-box on-secondary">On Secondary</div>
+      <div class="color-box secondary-container">Secondary Container</div>
+      <div class="color-box on-secondary-container">On Secondary Container</div>
+    </div>
+    <div class="row colors">
+      <div class="color-box tertiary">Tertiary</div>
+      <div class="color-box on-tertiary">On Tertiary</div>
+      <div class="color-box tertiary-container">Tertiary Container</div>
+      <div class="color-box on-tertiary-container">On Tertiary Container</div>
+    </div>
+    <div class="row colors">
+      <div class="color-box background">Background</div>
+      <div class="color-box on-background">On Background</div>
+      <div class="color-box surface">Surface</div>
+      <div class="color-box on-surface">On Surface</div>
+    </div>
+    <h2>Palettes</h2>
+    <h3>Primary</h3>
+    <div class="palettes palette-primary"></div>
+    <h3>Secondary</h3>
+    <div class="palettes palette-secondary"></div>
+    <h3>Tertiary</h3>
+    <div class="palettes palette-tertiary"></div>
+    <h3>Error</h3>
+    <div class="palettes palette-error"></div>
+    <h3>Neutral</h3>
+    <div class="palettes palette-neutral"></div>
+    <h3>Neutral Variant</h3>
+    <div class="palettes palette-neutral-variant"></div>
+    <h2>Surfaces</h2>
+    <div class="row colors">
+      <div class="color-box surface-1">Surface 1</div>
+      <div class="color-box surface-2">Surface 2</div>
+      <div class="color-box surface-3">Surface 3</div>
+      <div class="color-box surface-4">Surface 4</div>
+      <div class="color-box surface-5">Surface 5</div>
+    </div>
+  </main>
   <script type="module" src="/src/material-theme-control.ts"></script>
 </body>
 
