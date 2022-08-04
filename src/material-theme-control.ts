@@ -91,6 +91,7 @@ export class MaterialThemeControl extends LitElement {
   `;
 
   @property({ type: Boolean }) rgb = false;
+  @property({ type: Boolean }) expanded = false;
   @state() showOptions = false;
   @property() color = localStorage.getItem("theme-color") || "#6750A4";
   @query("#theme-options") options!: HTMLDivElement;
@@ -223,7 +224,12 @@ export class MaterialThemeControl extends LitElement {
       const { id, content } = e.data;
       this.updateStyle(id, content);
     });
-    w.postMessage({ source, rgb: this.rgb });
+    const defaultTones = [100, 99, 98, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0];
+    const fullTones = Array.from(Array(101).keys());
+    w.postMessage({
+      source, rgb: this.rgb,
+      tones: this.expanded ? fullTones : defaultTones,
+    });
   }
 
   private updateStyle(id: string, content: string) {

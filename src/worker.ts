@@ -9,10 +9,10 @@ import {
 
 // Web Worker to handle the theme change
 onmessage = function (e) {
-    const { source, rgb } = e.data;
+    const { source, rgb, tones } = e.data;
     const theme = themeFromSourceColor(argbFromHex(source));
     applySchemes(theme, source, rgb);
-    applyPalettes(theme, rgb);
+    applyPalettes(theme, tones, rgb);
 }
 
 
@@ -55,9 +55,7 @@ function applySchemes(theme: Theme, source: string, rgb: boolean) {
     updateStyle('theme', sb.join("\n"));
 }
 
-function applyPalettes(theme: Theme, rgb: boolean) {
-    const tones = Array.from(Array(101).keys());
-
+function applyPalettes(theme: Theme, tones: number[], rgb: boolean) {
     // Palettes
     const applyPalette = (palette: TonalPalette, group: string, tones: number[]) => {
         const sb: string[] = [];
