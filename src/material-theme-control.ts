@@ -2,7 +2,7 @@ import { html, css, LitElement } from "lit";
 import { customElement, state, property, query } from "lit/decorators.js";
 
 import "@material/mwc-icon-button";
-import Worker from './worker.js?worker&inline'
+import { applyTheme } from "./utils";
 
 export const tagName = "material-theme-control";
 
@@ -218,18 +218,10 @@ export class MaterialThemeControl extends LitElement {
 
   private updateTheme() {
     const source = this.color;
-    // Performance test
-    const w = new Worker();
-    w.addEventListener('message', (e) => {
-      const { id, content } = e.data;
-      this.updateStyle(id, content);
-    });
     const defaultTones = [100, 99, 98, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0];
     const fullTones = Array.from(Array(101).keys());
-    w.postMessage({
-      source, rgb: this.rgb,
-      tones: this.expanded ? fullTones : defaultTones,
-    });
+    const tones = this.expanded ? fullTones : defaultTones;
+    applyTheme(source, this.rgb, tones, this.updateStyle.bind(this));
   }
 
   private updateStyle(id: string, content: string) {
