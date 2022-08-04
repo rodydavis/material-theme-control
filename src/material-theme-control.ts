@@ -218,7 +218,7 @@ export class MaterialThemeControl extends LitElement {
 
   private updateTheme() {
     const source = this.color;
-    const defaultTones = [100, 99, 98, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0];
+    const defaultTones = [100, 99, 98, 95, 90, 80, 70, 60, 50, 40, 35, 30, 25, 20, 10, 5, 0];
     const fullTones = Array.from(Array(101).keys());
     const tones = this.expanded ? fullTones : defaultTones;
     applyTheme(source, this.rgb, tones, this.updateStyle.bind(this));
