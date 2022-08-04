@@ -2,7 +2,7 @@ import { html, css, LitElement } from "lit";
 import { customElement, state, property, query } from "lit/decorators.js";
 
 import "@material/mwc-icon-button";
-import Worker from './worker.js?worker'
+import Worker from './worker.js?worker&inline'
 
 export const tagName = "material-theme-control";
 
