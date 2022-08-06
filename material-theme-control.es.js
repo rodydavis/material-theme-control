@@ -3634,12 +3634,7 @@ let MaterialThemeControl = class extends s {
   }
   toggle() {
     const dark = document.body.classList.contains("dark-theme");
-    if (!dark) {
-      document.body.classList.add("dark-theme");
-    } else {
-      document.body.classList.remove("dark-theme");
-    }
-    this.requestUpdate();
+    this.toggleClass(!dark);
   }
   setColor(val) {
     this.color = val;
@@ -3690,12 +3685,14 @@ let MaterialThemeControl = class extends s {
     } else {
       document.body.classList.remove("dark-theme");
     }
+    localStorage.setItem("dark-theme", dark.toString());
     this.requestUpdate();
   }
   firstUpdated() {
     this.updateTheme();
+    const isDark = localStorage.getItem("dark-theme");
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)");
-    this.toggleClass(prefersDark.matches);
+    this.toggleClass(isDark === "true" || prefersDark.matches);
     prefersDark.addEventListener("change", (e2) => {
       const dark = e2.matches;
       this.toggleClass(dark);
